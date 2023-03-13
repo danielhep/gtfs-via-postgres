@@ -1,4 +1,4 @@
-FROM node:alpine
+FROM node:alpine AS base
 LABEL org.opencontainers.image.title="gtfs-via-postgres"
 LABEL org.opencontainers.image.description="Process GTFS using PostgreSQL."
 LABEL org.opencontainers.image.authors="Jannis R <mail@jannisr.de>"
@@ -20,3 +20,18 @@ RUN ln -s /app/cli.js /usr/local/bin/gtfs-via-postgres
 VOLUME /gtfs
 WORKDIR /gtfs
 ENTRYPOINT ["/app/cli.js"]
+
+# Tag for running postgraphile script
+FROM node:alpine as with-graphql
+WORKDIR /app
+COPY --from=base /app /app
+RUN npm install \
+    postgraphile@4.12 \
+    @graphile-contrib/pg-simplify-inflector@^6.1 \
+    @graphile/postgis@^0.2.0-0
+RUN ln -s /app/scripts/run-postgraphile.js /usr/local/bin/gtfs-via-graphql
+WORKDIR /gtfs
+ENTRYPOINT [ "/app/scripts/run-postgraphile.js" ]
+
+# Make sure the final exported image is just the base
+FROM base
